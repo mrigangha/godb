@@ -64,6 +64,7 @@ func (db *Database) Get(key string) []byte {
 	}
 	val, ok = db.n_memory.SearchFromSStable(key)
 	if ok {
+		db.memory[key] = val // cache the values
 		return val
 	}
 	return nil
@@ -80,8 +81,17 @@ func (db *Database) Del(key string) {
 
 func (db *Database) Flush() {
 	db.n_memory.Flush()
+	f, err := os.OpenFile("wal.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		panic(err)
+	}
+	db.f = f
 }
 
 func (db *Database) Close() {
 	db.f.Close()
+}
+
+func (db *Database) ShouldFlush() bool {
+	return db.n_memory.ShouldFlush()
 }

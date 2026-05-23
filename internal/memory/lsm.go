@@ -21,6 +21,9 @@ func NewLSM() Lsm {
 		count: 1,
 	}
 }
+func (lsm *Lsm) ShouldFlush() bool {
+	return lsm.mt.size > 1000
+}
 
 func (lsm *Lsm) Insert(key string, value []byte) {
 	lsm.mt.Insert(key, value)

@@ -23,7 +23,8 @@ type Node struct {
 var nilNode = &Node{color: BLACK}
 
 func NewMemtable() Memtable {
-	return Memtable{root: nilNode}
+	return Memtable{root: nilNode,
+		size: 0}
 }
 
 func newNode(key string, data []byte) *Node {
@@ -40,6 +41,7 @@ func newNode(key string, data []byte) *Node {
 // ── Public API ────────────────────────────────────────────────────────────────
 
 func (mt *Memtable) Insert(key string, data []byte) {
+	mt.size += 1
 	nd := newNode(key, data)
 
 	parent := nilNode
@@ -80,6 +82,7 @@ func (mt *Memtable) Search(key string) ([]byte, bool) {
 }
 
 func (mt *Memtable) Delete(key string) bool {
+	mt.size -= 1
 	nd := mt.search(mt.root, key)
 	if nd == nilNode {
 		return false
