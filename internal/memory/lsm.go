@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"fmt"
 	"os"
 	"strconv"
 )
@@ -41,7 +42,7 @@ func (lsm *Lsm) SearchFromMemtable(key string) ([]byte, bool) {
 
 func (lsm *Lsm) SearchFromSStable(key string) ([]byte, bool) {
 	for i := lsm.count - 1; i >= 0; i-- {
-		rmap, err := ReadSS("ss" + strconv.Itoa(i) + ".log")
+		rmap, _, err := ReadSS("ss" + strconv.Itoa(i) + ".log")
 		if err != nil {
 			return nil, false
 		}
@@ -93,4 +94,24 @@ func (lsm *Lsm) Flush() {
 		os.Remove("wal.log")
 	}
 
+}
+
+func (lsm *Lsm) IsMergeReqd() bool {
+	return lsm.count > 10
+}
+
+func (lsm *Lsm) Merge() {
+	for i := lsm.count - 1; i >= 0; i-- {
+		rmap, rlist, err := ReadSS("ss" + strconv.Itoa(i) + ".log")
+		if err != nil {
+			return nil, false
+		}
+
+		for _, record := range rlist {
+
+			fmt.Println(record.Key)
+			fmt.Println(record.Value)
+		}
+
+	}
 }

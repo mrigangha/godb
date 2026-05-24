@@ -57,7 +57,7 @@ func WriteToSS(f *os.File, rec SSRecord) error {
 	return f.Sync()
 }
 
-func ReadSS(path string) (map[string]*SSRecord, error) {
+func ReadSS(path string) (map[string]*SSRecord, []*SSRecord, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
