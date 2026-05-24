@@ -1,7 +1,6 @@
 package memory
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 )
@@ -101,17 +100,52 @@ func (lsm *Lsm) IsMergeReqd() bool {
 }
 
 func (lsm *Lsm) Merge() {
+	tmb := make(map[string]struct{})
+	alreadyInserted := make(map[string]struct{})
+	tmp_cache := NewMemtable()
 	for i := lsm.count - 1; i >= 0; i-- {
-		rmap, rlist, err := ReadSS("ss" + strconv.Itoa(i) + ".log")
+		_, rlist, err := ReadSS("ss" + strconv.Itoa(i) + ".log")
 		if err != nil {
-			return nil, false
+			return
 		}
 
 		for _, record := range rlist {
 
-			fmt.Println(record.Key)
-			fmt.Println(record.Value)
+			if record.Op == SS_DEL {
+				tmb[record.Key] = struct{}{}
+			}
+
+			_, exists := tmb[record.Key]
+			_, done := alreadyInserted[record.Key]
+			if !exists && !done {
+				tmp_cache.Insert(record.Key, record.Value)
+				alreadyInserted[record.Key] = struct{}{}
+			}
 		}
+		os.Remove("ss" + strconv.Itoa(i) + ".log")
+	}
+	mFlush(&tmp_cache)
+	lsm.count = 1
+}
+
+func mFlush(tmp_Cache *Memtable) {
+	f, err := os.OpenFile(
+		"ss0.log",
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
+		0644,
+	)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	data := tmp_Cache.InOrder()
+	for _, value := range data {
+		WriteToSS(f, SSRecord{
+			Op:    SS_SET,
+			Key:   value.Key,
+			Value: value.Data,
+		})
 
 	}
+
 }

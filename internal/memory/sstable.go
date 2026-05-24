@@ -60,7 +60,7 @@ func WriteToSS(f *os.File, rec SSRecord) error {
 func ReadSS(path string) (map[string]*SSRecord, []*SSRecord, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer file.Close()
 
@@ -76,29 +76,29 @@ func ReadSS(path string) (map[string]*SSRecord, []*SSRecord, error) {
 			break
 		}
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		var keyLen uint32
 		var valueLen uint32
 
 		if err := binary.Read(file, binary.LittleEndian, &keyLen); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		if err := binary.Read(file, binary.LittleEndian, &valueLen); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		key := make([]byte, keyLen)
 		value := make([]byte, valueLen)
 
 		if _, err := io.ReadFull(file, key); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		if _, err := io.ReadFull(file, value); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		val := SSRecord{
 			Op:    op,
@@ -109,5 +109,5 @@ func ReadSS(path string) (map[string]*SSRecord, []*SSRecord, error) {
 		rmap[string(key)] = &val
 	}
 
-	return rmap, nil
+	return rmap, nil, nil
 }
