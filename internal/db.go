@@ -1,19 +1,16 @@
 package internal
 
 import (
-	"encoding/json"
 	"os"
 
+	"github.com/mrigangha/nosqldb/internal/memory"
 	"github.com/mrigangha/nosqldb/internal/wal"
 )
 
 type Database struct {
-	memory map[string][]byte
-	f      *os.File
-}
-
-func (db *Database) parseAndLoadDb() {
-
+	memory   map[string][]byte
+	n_memory memory.Lsm
+	f        *os.File
 }
 
 func fileExists(path string) bool {
@@ -23,17 +20,19 @@ func fileExists(path string) bool {
 
 func NewDatabase() Database {
 	db := Database{
-		f:      nil,
-		memory: make(map[string][]byte),
+		f:        nil,
+		n_memory: memory.NewLSM(),
+		memory:   make(map[string][]byte),
 	}
 	if fileExists("wal.log") {
 		var records, error = wal.ReadRecords("wal.log")
 		if error == nil {
 			for _, record := range records {
 				if record.Op == wal.WAL_SET {
-					db.memory[string(record.Key)] = record.Value
+
+					db.n_memory.Insert(record.Key, record.Value)
 				} else if record.Op == wal.WAL_DEL {
-					delete(db.memory, string(record.Key))
+					db.n_memory.Delete(record.Key)
 				}
 			}
 		}
@@ -48,23 +47,24 @@ func NewDatabase() Database {
 }
 
 func (db *Database) Set(key string, value []byte) error {
-	data, err := json.Marshal(value)
-	if err != nil {
-		panic("Invalid Type inserted")
-	}
 	wal.WriteRecord(db.f, wal.WALRecord{
 		Op:    wal.WAL_SET,
 		Key:   key,
-		Value: data,
+		Value: value,
 	})
-	db.memory[key] = value
+	db.n_memory.Insert(key, value)
 	defer db.f.Sync()
 	return nil
 }
 
 func (db *Database) Get(key string) []byte {
-	val, ok := db.memory[key]
+	val, ok := db.n_memory.SearchFromMemtable(key)
 	if ok {
+		return val
+	}
+	val, ok = db.n_memory.SearchFromSStable(key)
+	if ok {
+		db.memory[key] = val // cache the values
 		return val
 	}
 	return nil
@@ -76,9 +76,22 @@ func (db *Database) Del(key string) {
 		Key:   key,
 		Value: []byte(key),
 	})
-	delete(db.memory, key)
+	db.n_memory.Delete(key)
+}
+
+func (db *Database) Flush() {
+	db.n_memory.Flush()
+	f, err := os.OpenFile("wal.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		panic(err)
+	}
+	db.f = f
 }
 
 func (db *Database) Close() {
 	db.f.Close()
+}
+
+func (db *Database) ShouldFlush() bool {
+	return db.n_memory.ShouldFlush()
 }
