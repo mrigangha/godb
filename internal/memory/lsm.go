@@ -89,9 +89,6 @@ func (lsm *Lsm) Flush() {
 		}
 	}
 	lsm.tmb = make(map[string]struct{})
-	if _, err := os.Stat("wal.log"); err == nil {
-		os.Remove("wal.log")
-	}
 
 }
 
@@ -100,31 +97,45 @@ func (lsm *Lsm) IsMergeReqd() bool {
 }
 
 func (lsm *Lsm) Merge() {
-	tmb := make(map[string]struct{})
-	alreadyInserted := make(map[string]struct{})
-	tmp_cache := NewMemtable()
+	tombstones := make(map[string]struct{})
+	inserted := make(map[string]struct{})
+
+	tmp := NewMemtable()
+
 	for i := lsm.count - 1; i >= 0; i-- {
-		_, rlist, err := ReadSS("ss" + strconv.Itoa(i) + ".log")
+
+		_, records, err := ReadSS("ss" + strconv.Itoa(i) + ".log")
 		if err != nil {
-			return
+			continue
 		}
 
-		for _, record := range rlist {
+		for _, rec := range records {
 
-			if record.Op == SS_DEL {
-				tmb[record.Key] = struct{}{}
+			if _, done := inserted[rec.Key]; done {
+				continue
 			}
 
-			_, exists := tmb[record.Key]
-			_, done := alreadyInserted[record.Key]
-			if !exists && !done {
-				tmp_cache.Insert(record.Key, record.Value)
-				alreadyInserted[record.Key] = struct{}{}
+			inserted[rec.Key] = struct{}{}
+
+			if rec.Op == SS_DEL {
+				tombstones[rec.Key] = struct{}{}
+				continue
 			}
+
+			tmp.Insert(rec.Key, rec.Value)
 		}
+	}
+
+	// write compacted SSTable safely
+
+	mFlush(&tmp)
+
+	// delete old files AFTER successful flush
+
+	for i := lsm.count - 1; i >= 0; i-- {
 		os.Remove("ss" + strconv.Itoa(i) + ".log")
 	}
-	mFlush(&tmp_cache)
+
 	lsm.count = 1
 }
 

@@ -12,7 +12,6 @@ import (
 )
 
 var db internal.Database
-
 var mu sync.RWMutex
 
 type Request struct {
@@ -22,7 +21,6 @@ type Request struct {
 }
 
 func handle(conn net.Conn) {
-
 	defer conn.Close()
 
 	fmt.Println("Client connected")
@@ -31,13 +29,9 @@ func handle(conn net.Conn) {
 
 	for scanner.Scan() {
 
-		line := scanner.Bytes()
-
 		var req Request
-
-		err := json.Unmarshal(line, &req)
+		err := json.Unmarshal(scanner.Bytes(), &req)
 		if err != nil {
-
 			conn.Write([]byte("INVALID JSON\n"))
 			continue
 		}
@@ -45,38 +39,28 @@ func handle(conn net.Conn) {
 		switch req.Cmd {
 
 		case "SET":
-
 			mu.Lock()
-
 			db.Set(req.Key, []byte(req.Value))
-
 			mu.Unlock()
 
 			conn.Write([]byte("OK\n"))
 
 		case "GET":
-
 			mu.RLock()
-
-			byteS := db.Get(req.Key)
-
+			val := db.Get(req.Key)
 			mu.RUnlock()
 
-			conn.Write(byteS)
+			conn.Write(val)
 			conn.Write([]byte("\n"))
 
 		case "DELETE":
-
 			mu.Lock()
-
 			db.Del(req.Key)
-
 			mu.Unlock()
 
 			conn.Write([]byte("DELETED\n"))
 
 		default:
-
 			conn.Write([]byte("UNKNOWN COMMAND\n"))
 		}
 	}
@@ -85,30 +69,36 @@ func handle(conn net.Conn) {
 }
 
 func flushLoop() {
-
 	for {
-
 		time.Sleep(5 * time.Second)
 
 		mu.Lock()
 
 		if db.ShouldFlush() {
-
 			fmt.Println("Flushing MemTable...")
-
 			db.Flush()
 		}
 
 		mu.Unlock()
 	}
 }
+func mergeLoop() {
+	for {
+		time.Sleep(2 * time.Second)
 
+		if db.ShouldMerge() {
+			fmt.Println("Running SSTable Compaction...")
+			db.Merge()
+		}
+	}
+}
 func main() {
 
-	db = internal.NewDatabase()
+	db = *internal.NewDatabase()
 	defer db.Close()
 
 	go flushLoop()
+	go mergeLoop()
 
 	ln, err := net.Listen("tcp", ":8080")
 	if err != nil {
@@ -118,7 +108,6 @@ func main() {
 	fmt.Println("TCP DB Server Running on :8080")
 
 	for {
-
 		conn, err := ln.Accept()
 		if err != nil {
 			continue

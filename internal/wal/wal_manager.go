@@ -12,6 +12,11 @@ const (
 	WAL_DEL
 )
 
+type WALJob struct {
+	Record WALRecord
+	Done   chan error
+}
+
 type WALRecord struct {
 	Op    byte
 	Key   string
