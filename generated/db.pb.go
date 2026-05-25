@@ -325,7 +325,7 @@ const file_proto_db_proto_rawDesc = "" +
 	"\aNoSQLDB\x12&\n" +
 	"\x03Set\x12\x0e.db.SetRequest\x1a\x0f.db.SetResponse\x12&\n" +
 	"\x03Get\x12\x0e.db.GetRequest\x1a\x0f.db.GetResponse\x12/\n" +
-	"\x06Delete\x12\x11.db.DeleteRequest\x1a\x12.db.DeleteResponseB\rZ\v./generatedb\x06proto3"
+	"\x06Delete\x12\x11.db.DeleteRequest\x1a\x12.db.DeleteResponseB(Z&github.com/mrigangha/nosqldb/generatedb\x06proto3"
 
 var (
 	file_proto_db_proto_rawDescOnce sync.Once

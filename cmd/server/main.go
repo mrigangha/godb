@@ -3,70 +3,80 @@ package main
 import (
 	"context"
 	"log"
-	"net"
+	"net/http"
 	"os"
 
-	"github.com/mrigangha/nosqldb/generated"
-	"github.com/mrigangha/nosqldb/internal"
+	"connectrpc.com/connect"
 
-	"google.golang.org/grpc"
+	"github.com/mrigangha/nosqldb/generated"
+	"github.com/mrigangha/nosqldb/generated/generatedconnect"
+	"github.com/mrigangha/nosqldb/internal"
 )
 
 type Server struct {
-	generated.UnimplementedNoSQLDBServer
-
 	db *internal.Database
 }
 
 func (s *Server) Set(
 	ctx context.Context,
-	req *generated.SetRequest,
-) (*generated.SetResponse, error) {
+	req *connect.Request[generated.SetRequest],
+) (*connect.Response[generated.SetResponse], error) {
 
-	err := s.db.Set(req.Key, req.Value)
+	err := s.db.Set(
+		req.Msg.Key,
+		req.Msg.Value,
+	)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &generated.SetResponse{
-		Ok: true,
-	}, nil
+	return connect.NewResponse(
+		&generated.SetResponse{
+			Ok: true,
+		},
+	), nil
 }
 
 func (s *Server) Get(
 	ctx context.Context,
-	req *generated.GetRequest,
-) (*generated.GetResponse, error) {
+	req *connect.Request[generated.GetRequest],
+) (*connect.Response[generated.GetResponse], error) {
 
-	val := s.db.Get(req.Key)
+	val := s.db.Get(req.Msg.Key)
 
 	if val == nil {
-		return &generated.GetResponse{
-			Found: false,
-		}, nil
+		return connect.NewResponse(
+			&generated.GetResponse{
+				Found: false,
+			},
+		), nil
 	}
 
-	return &generated.GetResponse{
-		Value: val,
-		Found: true,
-	}, nil
+	return connect.NewResponse(
+		&generated.GetResponse{
+			Value: val,
+			Found: true,
+		},
+	), nil
 }
 
 func (s *Server) Delete(
 	ctx context.Context,
-	req *generated.DeleteRequest,
-) (*generated.DeleteResponse, error) {
+	req *connect.Request[generated.DeleteRequest],
+) (*connect.Response[generated.DeleteResponse], error) {
 
-	err := s.db.Del(req.Key)
+	err := s.db.Del(req.Msg.Key)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &generated.DeleteResponse{
-		Ok: true,
-	}, nil
+	return connect.NewResponse(
+		&generated.DeleteResponse{
+			Ok: true,
+		},
+	), nil
 }
 
 func main() {
@@ -74,33 +84,30 @@ func main() {
 	db := internal.NewDatabase()
 	defer db.Close()
 
+	server := &Server{
+		db: db,
+	}
+
+	mux := http.NewServeMux()
+
+	path, handler := generatedconnect.NewNoSQLDBHandler(server)
+
+	mux.Handle(path, handler)
+
 	port := os.Getenv("PORT")
 
 	if port == "" {
 		port = "10000"
 	}
 
-	lis, err := net.Listen(
-		"tcp",
+	log.Println("ConnectRPC DB running on :" + port)
+
+	err := http.ListenAndServe(
 		"0.0.0.0:"+port,
+		mux,
 	)
 
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	grpcServer := grpc.NewServer()
-
-	generated.RegisterNoSQLDBServer(
-		grpcServer,
-		&Server{
-			db: db,
-		},
-	)
-
-	log.Println("gRPC DB running on :" + port)
-
-	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -2,14 +2,11 @@ syntax = "proto3";
 
 package db;
 
-option go_package = "./generated";
+option go_package = "github.com/mrigangha/nosqldb/generated";
 
 service NoSQLDB {
-
   rpc Set(SetRequest) returns (SetResponse);
-
   rpc Get(GetRequest) returns (GetResponse);
-
   rpc Delete(DeleteRequest) returns (DeleteResponse);
 }
 

@@ -3,6 +3,7 @@ module github.com/mrigangha/nosqldb
 go 1.26.2
 
 require (
+	connectrpc.com/connect v1.20.0 // indirect
 	golang.org/x/net v0.51.0 // indirect
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
