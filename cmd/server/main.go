@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"net"
-	"net/http"
 	"os"
 
 	"github.com/mrigangha/nosqldb/generated"
@@ -75,30 +74,16 @@ func main() {
 	db := internal.NewDatabase()
 	defer db.Close()
 
-	// Render dynamic port
 	port := os.Getenv("PORT")
 
 	if port == "" {
-		port = "50051"
+		port = "10000"
 	}
 
-	// Small HTTP health server for Render
-	go func() {
-
-		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("gRPC DB running"))
-		})
-
-		log.Println("HTTP health server running on :8080")
-
-		err := http.ListenAndServe("0.0.0.0:8080", nil)
-
-		if err != nil {
-			log.Println(err)
-		}
-	}()
-
-	lis, err := net.Listen("tcp", "0.0.0.0:"+port)
+	lis, err := net.Listen(
+		"tcp",
+		"0.0.0.0:"+port,
+	)
 
 	if err != nil {
 		log.Fatal(err)
