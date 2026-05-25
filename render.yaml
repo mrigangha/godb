@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: godb
+    env: go
+    plan: free
+
+    buildCommand: go build -o server ./cmd/server
+
+    startCommand: ./server
+
+    envVars:
+      - key: PORT
+        value: 50051
